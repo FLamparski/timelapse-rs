@@ -1,0 +1,1 @@
+Copy-Item .\dlls\*.dll .\target\debug

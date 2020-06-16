@@ -7,4 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-opencv = { version = "0.41.0", features = ["buildtime-bindgen"] }
+#opencv = { version = "0.41.0", features = ["contrib", "buildtime-bindgen"] }
+ffmpeg-next = { version = "4.3.0", default-features = false, features = ["ffmpeg42", "codec", "device", "filter", "format", "software-resampling", "software-scaling"] }
+image = "0.23.5"
+img_hash = "3.0"
