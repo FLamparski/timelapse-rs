@@ -19,3 +19,4 @@ ffmpeg-next = { version = "4.3.0", default-features = false, features = [
 image = "0.23.5"
 img_hash = "3.0"
 rayon = "1.1"
+structopt = "0.3"

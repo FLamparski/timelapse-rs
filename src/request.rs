@@ -1,13 +1,41 @@
 use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
 
+use structopt::StructOpt;
+
+/// Processes videos into timelapses by selectively picking one for every window-size frames from
+/// the input. The frame is selected based on its similarity to the previous frame, in order to
+/// not result in a jittery sped-up video but something that's hopefully much smoother. The primary
+/// use case for this program are 3D printing timelapses taken from a webcam.
+#[derive(StructOpt, Debug)]
+#[structopt(name = "timelapse-rs")]
 pub struct Request {
+    /// Path to the input file
+    #[structopt(name = "INPUT", parse(from_os_str))]
     input_path: PathBuf,
+
+    /// Path to the output file (.webm)
+    #[structopt(name = "OUTPUT", parse(from_os_str))]
     output_path: PathBuf,
+
+    /// Number of input frames to pick each output frame from
+    #[structopt(long, default_value = "25")]
     pub window_size: u32,
+
+    /// Number of input frames to skip for every output frame (may be useful for timelapses
+    /// made from realtime videos)
+    #[structopt(long, default_value = "0")]
     pub frame_skip: u32,
+
+    /// Only use "key" frames from the input, eg. frames that encode a full image rather than those
+    /// that encode differences between images. The behaviour of this option depends on the encoding
+    /// of the input video, and may be useful for timelapses made from realtime videos.
+    #[structopt(long)]
     pub key_frames_only: bool,
-    pub verbose: bool,
+
+    /// Verbose output (-v, -vv, -vvv etc) - show messages from the app itself and from ffmpeg
+    #[structopt(short, long, parse(from_occurrences))]
+    pub verbose: u8,
 }
 
 impl Default for Request {
@@ -18,7 +46,7 @@ impl Default for Request {
             window_size: 25,
             frame_skip: 0,
             key_frames_only: true,
-            verbose: false,
+            verbose: 0,
         }
     }
 }
@@ -61,7 +89,7 @@ impl Request {
         self
     }
 
-    pub fn set_verbose<'a>(&'a mut self, verbose: bool) -> &'a mut Self {
+    pub fn set_verbose<'a>(&'a mut self, verbose: u8) -> &'a mut Self {
         self.verbose = verbose;
         self
     }

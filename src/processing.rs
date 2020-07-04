@@ -30,6 +30,7 @@ pub struct TimelapseContext<'a> {
     scaler: ScalingContext,
 
     video_stream_id: usize,
+    num_frames: i64,
 
     last_hash: RefCell<Option<ImageHash>>,
 }
@@ -37,6 +38,7 @@ pub struct TimelapseContext<'a> {
 impl<'a> TimelapseContext<'a> {
     pub fn new(ictx: &'a mut InputContext, request: &'a Request) -> Result<Self, ffmpeg::Error> {
         let stream = ictx.streams().best(Type::Video).ok_or(ffmpeg::Error::StreamNotFound)?;
+        let num_frames = stream.frames();
         let video_stream_id = stream.index();
         let decoder = stream.codec().decoder().video()?;
         let scaler = ScalingContext::get(
@@ -57,6 +59,7 @@ impl<'a> TimelapseContext<'a> {
             decoder,
             scaler,
             video_stream_id,
+            num_frames,
 
             packet_iter,
             last_hash: RefCell::new(None),
@@ -69,6 +72,7 @@ impl<'a> TimelapseContext<'a> {
             height: self.decoder.height(),
             frame_rate: self.decoder.frame_rate().unwrap(),
             timebase: self.decoder.time_base(),
+            total_frames: self.num_frames,
         }
     }
 
@@ -84,17 +88,17 @@ impl<'a> TimelapseContext<'a> {
         }
 
         let last_hash = self.last_hash.borrow().clone().unwrap();
-        if request.verbose { println!("last hash: {}", last_hash.to_base64()); }
+        if request.verbose > 1 { println!("last hash: {}", last_hash.to_base64()); }
 
         let hashing_result = window.into_par_iter().map(|frame| {
             let hash = hash_frame(&frame);
             let dist = last_hash.dist(&hash);
-            if request.verbose { println!("    candidate hash: {} (distance {})", hash.to_base64(), dist); }
+            if request.verbose > 1 { println!("    candidate hash: {} (distance {})", hash.to_base64(), dist); }
             (frame, hash, dist)
         }).min_by_key(|&(_, _, dist)| dist);
 
         if let Some((frame, hash, dist)) = hashing_result {
-            if request.verbose { println!("    selected hash: {} (distance {})", hash.to_base64(), dist); }
+            if request.verbose > 1 { println!("    selected hash: {} (distance {})", hash.to_base64(), dist); }
             self.last_hash.replace(Some(hash));
             Ok(frame)
         } else {
@@ -163,4 +167,5 @@ pub struct VideoInfo<R: Into<Rational> + Copy + Clone> {
     pub height: u32,
     pub frame_rate: R,
     pub timebase: R,
+    pub total_frames: i64,
 }
