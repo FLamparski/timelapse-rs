@@ -8,6 +8,7 @@ use ffmpeg::media::Type;
 use ffmpeg::decoder;
 use ffmpeg::software::scaling::{flag::Flags};
 use ffmpeg::util::frame;
+use ffmpeg::Rational;
 
 use image;
 
@@ -60,6 +61,15 @@ impl<'a> TimelapseContext<'a> {
             packet_iter,
             last_hash: RefCell::new(None),
         })
+    }
+
+    pub fn get_info(&self) -> VideoInfo<Rational> {
+        VideoInfo {
+            width: self.decoder.width(),
+            height: self.decoder.height(),
+            frame_rate: self.decoder.frame_rate().unwrap(),
+            timebase: self.decoder.time_base(),
+        }
     }
 
     pub fn next_frame<'b>(&'b mut self) -> Result<VideoFrame, ffmpeg::Error> {
@@ -146,4 +156,11 @@ fn hash_frame<'b>(frame: &VideoFrame) -> ImageHash {
 
     let img_buffer = buffer.try_into_buffer::<image::Rgb<u8>>().unwrap();
     hasher.hash_image(&img_buffer)
+}
+
+pub struct VideoInfo<R: Into<Rational> + Copy + Clone> {
+    pub width: u32,
+    pub height: u32,
+    pub frame_rate: R,
+    pub timebase: R,
 }
