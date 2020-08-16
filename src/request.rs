@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
+use std::string::ToString;
+use std::str::FromStr;
+use std::fmt::{self, Display};
 
 use structopt::StructOpt;
 
@@ -36,6 +39,18 @@ pub struct Request {
     /// Verbose output (-v, -vv, -vvv etc) - show messages from the app itself and from ffmpeg
     #[structopt(short, long, parse(from_occurrences))]
     pub verbose: u8,
+
+    /// How to compare frames to determine similarity
+    /// 
+    /// Current options:
+    /// 
+    /// * `blockhash` (from `img_hash`) - fast but often has poor results
+    /// * `gradienthash` (from `img_hash`) - slower, potentially better results
+    /// * `meanhash` (from `img_hash`) - slower, potentially better results
+    /// * `mse` - mean square error - slow, but should have good results
+    /// * `ssim` - structured similarity index - slowest, but should have best results
+    #[structopt(short, long, default_value = "mse")]
+    pub comparison_mode: ComparisonMode,
 }
 
 impl Default for Request {
@@ -47,6 +62,7 @@ impl Default for Request {
             frame_skip: 0,
             key_frames_only: true,
             verbose: 0,
+            comparison_mode: ComparisonMode::MSE,
         }
     }
 }
@@ -92,5 +108,46 @@ impl Request {
     pub fn set_verbose<'a>(&'a mut self, verbose: u8) -> &'a mut Self {
         self.verbose = verbose;
         self
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ComparisonMode {
+    Noop,
+    Blockhash,
+    GradientHash,
+    MeanHash,
+    MSE,
+    SSIM,
+}
+
+#[derive(Debug)]
+pub struct ParseComparisonModeError;
+
+impl ToString for ParseComparisonModeError {
+    fn to_string(&self) -> String {
+        String::from("ParseComparisonModeError")
+    }
+}
+
+impl FromStr for ComparisonMode {
+    type Err = ParseComparisonModeError;
+
+    fn from_str(s: &str) -> Result<ComparisonMode, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "noop" => Ok(ComparisonMode::Noop),
+            "blockhash" => Ok(ComparisonMode::Blockhash),
+            "gradienthash" => Ok(ComparisonMode::GradientHash),
+            "meanhash" => Ok(ComparisonMode::MeanHash),
+            "mse" => Ok(ComparisonMode::MSE),
+            "ssim" => Ok(ComparisonMode::SSIM),
+            _ => Err(ParseComparisonModeError),
+        }
+    }
+}
+
+impl Display for ComparisonMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }

@@ -9,62 +9,53 @@ use ffmpeg::codec::encoder::{find as find_codec};
 use ffmpeg::encoder::{Video as VideoEncoder};
 use ffmpeg::Rational;
 use ffmpeg::Packet;
-use ffmpeg::StreamMut;
 
 use crate::request::Request;
-use crate::processing::VideoInfo;
+use crate::decoder::VideoInfo;
 
 type ScalingContext = ffmpeg::software::scaling::Context;
 type VideoFrame = frame::Video;
 
-struct EncInit<'a, 'b, R: Into<Rational> + Copy + Clone> {
-    request: &'a Request,
+struct EncInit<'a, R: Into<Rational> + Copy + Clone> {
     video_info: &'a VideoInfo<R>,
     output: MaybeUninit<OutputContext>,
     scaler: MaybeUninit<ScalingContext>,
     encoder: MaybeUninit<VideoEncoder>,
-    stream: MaybeUninit<StreamMut<'b>>,
     stream_index: usize,
 }
 
-impl<'a, 'b, R> EncInit<'a, 'b, R>
+impl<'a, R> EncInit<'a, R>
 where R: Into<Rational> + Copy + Clone {
-    unsafe fn assume_init(self) -> Encoder<'a, 'b, R> {
+    unsafe fn assume_init(self) -> Encoder<'a, R> {
         Encoder {
-            request: self.request,
             video_info: self.video_info,
             output: self.output.assume_init(),
             scaler: self.scaler.assume_init(),
             encoder: self.encoder.assume_init(),
-            stream: self.stream.assume_init(),
             stream_index: self.stream_index,
             pts: 0,
         }
     }
 }
 
-pub struct Encoder<'a, 'b, R: Into<Rational> + Copy + Clone> {
-    request: &'a Request,
+pub struct Encoder<'a, R: Into<Rational> + Copy + Clone> {
     video_info: &'a VideoInfo<R>,
     output: OutputContext,
     scaler: ScalingContext,
     encoder: VideoEncoder,
-    stream: StreamMut<'b>,
     stream_index: usize,
     pts: i64,
 }
 
-impl<'a, 'b, R> Encoder<'a, '_, R>
+impl<'a, R> Encoder<'a, R>
 where R: Into<Rational> + Copy + Clone {
     const PIXEL_FORMAT: Pixel = Pixel::YUV420P;
     pub fn new(request: &'a Request, video_info: &'a VideoInfo<R>) -> Result<Self, ffmpeg::Error> {
         let mut this = EncInit {
-            request,
             video_info,
             output: MaybeUninit::<OutputContext>::uninit(),
             scaler: MaybeUninit::<ScalingContext>::uninit(),
             encoder: MaybeUninit::<VideoEncoder>::uninit(),
-            stream: MaybeUninit::<StreamMut<'_>>::uninit(),
             stream_index: 0,
         };
 
@@ -94,14 +85,13 @@ where R: Into<Rational> + Copy + Clone {
         encoder.set_global_quality(32);
         encoder.set_frame_rate(Some(video_info.frame_rate));
         encoder.set_time_base(video_info.frame_rate.into().invert());
-        encoder.set_bit_rate(10 * 1024 * 1024);
-        encoder.set_max_bit_rate(15 * 1024 * 1024);
+        encoder.set_bit_rate(2_500_000);
+        encoder.set_max_bit_rate(5_000_000);
         let encoder = encoder.open_as(codec)?;
         stream.set_parameters(&encoder);
         this.stream_index = stream.index();
 
         unsafe { this.encoder.as_mut_ptr().write(encoder); }
-        unsafe { this.stream.as_mut_ptr().write(stream); }
 
         let mut this = unsafe { this.assume_init() };
         if request.verbose > 0 { dump_format(&this.output, 0, request.output_path().to_str()); }
