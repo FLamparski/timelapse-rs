@@ -85,8 +85,8 @@ where R: Into<Rational> + Copy + Clone {
         encoder.set_global_quality(32);
         encoder.set_frame_rate(Some(video_info.frame_rate));
         encoder.set_time_base(video_info.frame_rate.into().invert());
-        encoder.set_bit_rate(2_500_000);
-        encoder.set_max_bit_rate(5_000_000);
+        encoder.set_bit_rate(5_000_000);
+        encoder.set_max_bit_rate(10_000_000);
         let encoder = encoder.open_as(codec)?;
         stream.set_parameters(&encoder);
         this.stream_index = stream.index();
